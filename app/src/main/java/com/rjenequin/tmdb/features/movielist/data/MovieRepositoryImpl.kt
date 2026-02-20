@@ -22,17 +22,22 @@ class MovieRepositoryImpl @Inject constructor(
 ) : MovieRepository {
     @OptIn(ExperimentalPagingApi::class)
     override fun getMovies(query: String?): Flow<PagingData<Movie>> {
-        val pagingSourceFactory = {
-            if (query.isNullOrBlank()) db.movieDao().getPopularMovies()
-            else db.movieDao().searchMovies(query)
-        }
-
-        return Pager(
-            config = PagingConfig(pageSize = 20),
-            remoteMediator = MovieRemoteMediator(api, db),
-            pagingSourceFactory = pagingSourceFactory
-        ).flow.map { pagingData ->
-            pagingData.map { entity -> entity.toDomain() }
+        return if (query.isNullOrBlank()) {
+            // --- CAS FILMS POPULAIRES (Room + Mediator pour Offline-First) ---
+            Pager(
+                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+                remoteMediator = MovieRemoteMediator(api, db),
+                pagingSourceFactory = { db.movieDao().getPopularMovies() }
+            ).flow.map { pagingData ->
+                pagingData.map { entity -> entity.toDomain() }
+            }
+        } else {
+            // --- CAS RECHERCHE (Direct API via PagingSource) ---
+            Pager(
+                config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+                // Pas de Mediator ici pour éviter de polluer la base de données
+                pagingSourceFactory = { MoviePagingSource(api, query) }
+            ).flow
         }
     }
 

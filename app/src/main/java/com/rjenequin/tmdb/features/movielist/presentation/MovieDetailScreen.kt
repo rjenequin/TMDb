@@ -1,66 +1,80 @@
 package com.rjenequin.tmdb.features.movielist.presentation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.rjenequin.tmdb.features.movielist.domain.MovieDetail
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+/**
+ * STATEFUL VERSION: Manages logic and the ViewModel.
+ * This is the one used by Navigation.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MovieDetailScreen(
     viewModel: MovieDetailViewModel,
-    sharedTransitionScope: SharedTransitionScope, // AJOUTÉ
-    animatedVisibilityScope: AnimatedVisibilityScope, // AJOUTÉ
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     onBackClick: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // On utilise 'with' pour lier l'image au scope de transition
+    MovieDetailContent(
+        state = state,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope,
+        onBackClick = onBackClick
+    )
+}
+
+/**
+ * STATELESS VERSION: Purely for UI.
+ * Ideal for Previews and tests.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+@Composable
+fun MovieDetailContent(
+    state: MovieDetailState,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onBackClick: () -> Unit
+) {
     with(sharedTransitionScope) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Détails") },
+                    title = { Text("Details") },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 )
             }
         ) { padding ->
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
@@ -76,7 +90,7 @@ fun MovieDetailScreen(
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(400.dp)
+                                .height(450.dp)
                                 .sharedElement(
                                     rememberSharedContentState(key = "poster-${movie.id}"),
                                     animatedVisibilityScope = animatedVisibilityScope
@@ -84,33 +98,38 @@ fun MovieDetailScreen(
                             contentScale = ContentScale.Crop
                         )
 
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(20.dp)) {
                             Text(
                                 text = movie.title,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text(
-                                    text = "⭐ ${movie.rating}/10",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "💰 Budget: ${movie.budget}",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                InfoTag(label = "Rating", value = "⭐ ${"%.1f".format(movie.rating).toDouble()}/10")
+                                InfoTag(label = "Budget", value = "💰 ${movie.budget}")
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
+
                             Text(
-                                text = "Synopsis",
+                                text = "Overview",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold
                             )
+
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = movie.overview, style = MaterialTheme.typography.bodyMedium)
+
+                            Text(
+                                text = movie.overview,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -123,6 +142,43 @@ fun MovieDetailScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun InfoTag(label: String, value: String) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * THE PREVIEW: Short, clean, and efficient.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true)
+@Composable
+fun MovieDetailPreview() {
+    val mockMovie = MovieDetail(
+        id = 1,
+        title = "Inception",
+        overview = "A skilled thief is tasked with planting an idea into a CEO's mind.",
+        posterUrl = "", // Coil will display a blank space, which is fine for the preview
+        releaseDate = "2010",
+        rating = 8.8,
+        budget = "160M $"
+    )
+
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            MovieDetailContent(
+                state = MovieDetailState(movie = mockMovie),
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this@AnimatedVisibility,
+                onBackClick = {}
+            )
         }
     }
 }
